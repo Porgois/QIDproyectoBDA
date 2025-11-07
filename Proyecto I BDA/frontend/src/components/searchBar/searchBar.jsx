@@ -14,7 +14,7 @@ const SearchBar = ({sampleData}) => {
     }
   }
  
-  const handleSearch = useCallback(
+  const handleSearch = useCallback(() =>
     debounce((term) => {
       if (term.trim() === '') {
         setSearchResults([])
@@ -25,7 +25,7 @@ const SearchBar = ({sampleData}) => {
         setSearchResults(results)
       }
     }, 300),
-    [],
+    [sampleData],
   )
  
   useEffect(() => {

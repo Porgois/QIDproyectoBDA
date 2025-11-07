@@ -1,4 +1,4 @@
-import SearchBar from "./components/searchbar/searchbar"
+import SearchBar from "./components/searchBar/searchBar.jsx"
 
 function App() {
 
