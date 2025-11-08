@@ -1,0 +1,30 @@
+services:
+  db-metadata:
+    container_name: db_metadata
+    image: mysql:9
+    restart: unless-stopped
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./databases/mysql:/var/lib/mysql
+      - ./secrets/mysql:/run/secrets
+
+  db-content:
+    container_name: db-content
+    image: mongo:8.2-noble
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./databases/mongo:/data/db
+      - ./secrets/mongo:/run/secrets
+
+  db-index:
+    container_name: db-index
+    image: postgres:18
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./databases/postgres:/var/lib/postgresql/data
+      - ./secrets/postgres:/run/secrets
