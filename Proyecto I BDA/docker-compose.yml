@@ -1,3 +1,4 @@
+name: bda_busqueda_distribuida
 services:
   db-metadata:
     container_name: db_metadata
@@ -21,7 +22,7 @@ services:
 
   db-index:
     container_name: db-index
-    image: postgres:18
+    image: postgres:17
     restart: unless-stopped
     ports:
       - "5432:5432"

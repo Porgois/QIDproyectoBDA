@@ -1,0 +1,16 @@
+services:
+  db-metadata:
+    environment:
+      MYSQL_USER_FILE: "/run/secrets/MYSQL_USER"
+      MYSQL_PASSWORD_FILE: "/run/secrets/MYSQL_PASSWORD"
+      MYSQL_ROOT_PASSWORD_FILE: "/run/secrets/MYSQL_ROOT_PASSWORD"
+
+  db-content:
+    environment:
+      MONGO_INITDB_ROOT_USERNAME_FILE: /run/secrets/MONGO_USER
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/MONGO_PASSWORD
+
+  db-index:
+    environment:
+      POSTGRES_USER_FILE: /run/secrets/POSTGRES_USER
+      POSTGRES_PASSWORD_FILE: /run/secrets/POSTGRES_PASSWORD
