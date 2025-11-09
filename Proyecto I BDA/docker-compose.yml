@@ -29,3 +29,12 @@ services:
     volumes:
       - ./databases/postgres:/var/lib/postgresql/data
       - ./secrets/postgres:/run/secrets
+
+  broker:
+    container_name: broker
+    image: rabbitmq:4
+    restart: unless-stopped
+    ports:
+      - "5672:5672"
+    volumes:
+      - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/conf.d/rabbitmq.conf

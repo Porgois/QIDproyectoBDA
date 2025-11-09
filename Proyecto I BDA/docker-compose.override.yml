@@ -14,3 +14,7 @@ services:
     environment:
       POSTGRES_USER_FILE: /run/secrets/POSTGRES_USER
       POSTGRES_PASSWORD_FILE: /run/secrets/POSTGRES_PASSWORD
+
+  broker:
+    environment:
+      RABBITMQ_CONFIG_FILES: /etc/rabbitmq/conf.d/rabbitmq.conf
