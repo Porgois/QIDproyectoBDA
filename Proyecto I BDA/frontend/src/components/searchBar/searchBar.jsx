@@ -14,24 +14,24 @@ const SearchBar = ({sampleData}) => {
     }
   }
  
-  const handleSearch = useCallback(() =>
-    debounce((term) => {
-      if (term.trim() === '') {
-        setSearchResults([])
-      } else {
-        const results = sampleData.filter((item) =>
-          item.title.toLowerCase().includes(term.toLowerCase()),
-        )
-        setSearchResults(results)
-      }
-    }, 300),
-    [sampleData],
-  )
- 
-  useEffect(() => {
-    handleSearch(searchTerm)
-  }, [searchTerm, handleSearch])
- 
+ const handleSearch = useCallback(
+  debounce((term) => {
+    if (term.trim() === '') {
+      setSearchResults([]);
+    } else {
+      const results = sampleData.filter((item) =>
+        item.title.toLowerCase().includes(term.toLowerCase())
+      );
+      setSearchResults(results);
+    }
+  }, 300),
+  [sampleData]
+);
+
+useEffect(() => {
+  handleSearch(searchTerm);
+}, [searchTerm, handleSearch]);
+
   const handleInputChange = (e) => {
     setSearchTerm(e.target.value)
   }
@@ -66,7 +66,7 @@ const SearchBar = ({sampleData}) => {
                     <ul>
                     {searchResults.map((result) => (
                         <li key={result.id} className="mb-2">
-                        <h1>{result.title}</h1>
+                        <h1 className="font-bold">{result.title}</h1>
                         <a
                             href={result.url}
                             className="text-blue-600 hover:underline"
@@ -75,6 +75,7 @@ const SearchBar = ({sampleData}) => {
                         >
                             {result.url}
                         </a>
+                        <h2>{result.description}</h2>
                         </li>
                     ))}
                     </ul>
