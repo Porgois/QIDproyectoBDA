@@ -43,3 +43,14 @@ services:
       - db-metadata
       - db-content
       - db-index
+
+  crawler:
+    container_name: crawler
+    build:
+      context: ./crawler
+    restart: unless-stopped
+    depends_on:
+      - db-metadata
+      - db-content
+      - db-index
+      - broker
