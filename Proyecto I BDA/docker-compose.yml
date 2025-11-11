@@ -49,6 +49,8 @@ services:
     build:
       context: ./crawler
     restart: unless-stopped
+    volumes:
+      - ./rabbitmq/crawler.ini:/usr/src/app/config/crawler.ini
     depends_on:
       - db-metadata
       - db-content

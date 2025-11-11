@@ -1,1 +1,2 @@
-from crawler.main import Crawler
+from crawler.core import Crawler
+from crawler.webcrawler import WebCrawler

@@ -1,14 +1,16 @@
 FROM python:3.14-slim
 
+ENV CRAWLER_CONFIG_FILE="config/crawler.ini"
+
 WORKDIR /usr/src/app
 
 COPY ./app/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY ./app/src .
+COPY ./app .
 
 RUN useradd -m -u 1000 appuser
 RUN chown -R appuser:appuser /usr/src/app
 USER appuser
 
-CMD ["python", "main.py"]
+CMD ["python", "src/main.py", "${CRAWLER_CONFIG_FILE}"]
