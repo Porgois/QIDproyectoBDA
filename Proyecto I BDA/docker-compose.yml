@@ -32,9 +32,14 @@ services:
 
   broker:
     container_name: broker
-    image: rabbitmq:4
+    image: rabbitmq:4-management-alpine
     restart: unless-stopped
     ports:
       - "5672:5672"
+      - "15672:15672"
     volumes:
       - ./rabbitmq/rabbitmq.conf:/etc/rabbitmq/conf.d/rabbitmq.conf
+    depends_on:
+      - db-metadata
+      - db-content
+      - db-index
