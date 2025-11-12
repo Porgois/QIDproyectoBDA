@@ -1,5 +1,6 @@
 from configparser import ConfigParser
 import pika
+import json
 
 from crawler.webcrawler import WebCrawler
 from crawler.explorer import Explorer
@@ -17,29 +18,55 @@ class Crawler:
 
             self.credentials = pika.PlainCredentials(username=username
                                                     , password=password)
+            
+            self._create_queues_()
         except Exception as e:
             print(f"Error reading configuration: {e}")
-            raise                                
+            raise
+
+    def _open_connection_(self):
+        self.connection = pika.BlockingConnection(
+            pika.ConnectionParameters(self.host, self.port
+                                      , credentials=self.credentials))
+        return self.connection.channel()
+
+    def _create_queues_(self):
+        self._open_connection_()
+        channel = self.connection.channel()
+
+        channel.queue_declare(queue='page-metadata')
+        channel.queue_declare(queue='page-content')
+        channel.queue_declare(queue='page-index')
+
+        channel.basic_publish(exchange='', routing_key='page-metadata', body='SELECT name FROM sys.databases;')
+
+        self.connection.close()     
 
     def run(self):
-        # self._connect_()
-
         explorer = Explorer()
         urls = explorer.get_url_list()
 
         crawler = WebCrawler()
         for url in urls:
-            crawler.process_page(url)
+            metadata, content = crawler.process_page(url)
+            if len(metadata) > 0 and len(content) > 0:
+                self._save_metadata_(metadata)
+                self._save_content_(content)
 
-    def _connect_(self):
-        connection = pika.BlockingConnection(
-            pika.ConnectionParameters(self.host, self.port
-                                      , credentials=self.credentials))
-        channel = connection.channel()
+    def _save_metadata_(self, metadata: dict):
+        self._open_connection_()
+        channel = self.connection.channel()
 
-        channel.queue_declare(queue='hello')
-        channel.basic_publish(exchange='', routing_key='hello', body='Hello World!')
-        print(" [x] Sent 'Hello World!'")
+        page_metadata = json.dumps(metadata)
+        channel.basic_publish(exchange='', routing_key='page-metadata', body=page_metadata)
 
-        channel.close()
-        connection.close()
+        self.connection.close()
+
+    def _save_content_(self, content: dict):
+        self._open_connection_()
+        channel = self.connection.channel()
+
+        page_content = json.dumps(content)
+        channel.basic_publish(exchange='', routing_key='page-content', body=page_content)
+
+        self.connection.close()
