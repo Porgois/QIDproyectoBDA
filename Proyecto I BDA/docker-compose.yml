@@ -1,13 +1,13 @@
 name: bda_busqueda_distribuida
 services:
   db-metadata:
-    container_name: db_metadata
+    container_name: db-metadata
     image: mysql:9
     restart: unless-stopped
     ports:
       - "3306:3306"
     volumes:
-      - ./databases/mysql:/var/lib/mysql
+      - ./databases/volumes/mysql:/var/lib/mysql
       - ./secrets/mysql:/run/secrets
 
   db-content:
@@ -17,7 +17,7 @@ services:
     ports:
       - "8081:8081"
     volumes:
-      - ./databases/mongo:/data/db
+      - ./databases/volumes/mongo:/data/db
       - ./secrets/mongo:/run/secrets
 
   db-index:
@@ -27,7 +27,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./databases/postgres:/var/lib/postgresql/data
+      - ./databases/volumes/postgres:/var/lib/postgresql/data
       - ./secrets/postgres:/run/secrets
 
   broker:
@@ -56,3 +56,17 @@ services:
       - db-content
       - db-index
       - broker
+
+  # consumer:
+  #   container_name: consumer
+  #   build:
+  #     context: ./consumer
+  #   restart: unless-stopped
+  #   volumes:
+  #     - ./rabbitmq/consumer.ini:/usr/src/app/config/consumer.ini
+  #   depends_on:
+  #     - db-metadata
+  #     - db-content
+  #     - db-index
+  #     - broker
+  #     - crawler

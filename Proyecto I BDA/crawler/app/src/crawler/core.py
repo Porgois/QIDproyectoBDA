@@ -1,6 +1,7 @@
 from configparser import ConfigParser
 import pika
 import json
+import os
 
 from crawler.webcrawler import WebCrawler
 from crawler.explorer import Explorer
@@ -10,6 +11,9 @@ class Crawler:
         try:
             configparser = ConfigParser()
             configparser.read(config_file)
+
+            if not os.path.exists(config_file):
+                raise Exception("Config File not found")
 
             username = configparser.get('rabbitmq', 'username', fallback='guest')
             password = configparser.get('rabbitmq', 'password', fallback='guest')
@@ -25,10 +29,10 @@ class Crawler:
             raise
 
     def _open_connection_(self):
-        self.connection = pika.BlockingConnection(
-            pika.ConnectionParameters(self.host, self.port
-                                      , credentials=self.credentials))
-        return self.connection.channel()
+        # print(f"Host : {self.host}, Port: {self.port}")
+        conn_param = pika.ConnectionParameters(host=self.host, port=self.port
+                                      , credentials=self.credentials)
+        self.connection = pika.BlockingConnection(conn_param)
 
     def _create_queues_(self):
         self._open_connection_()
