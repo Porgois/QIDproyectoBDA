@@ -9,6 +9,9 @@ services:
     volumes:
       - ./databases/volumes/mysql:/var/lib/mysql
       - ./secrets/mysql:/run/secrets
+    networks:
+      default_network:
+        ipv4_address: 172.18.0.2
 
   db-content:
     container_name: db-content
@@ -19,6 +22,9 @@ services:
     volumes:
       - ./databases/volumes/mongo:/data/db
       - ./secrets/mongo:/run/secrets
+    networks:
+      default_network:
+        ipv4_address: 172.18.0.3
 
   db-index:
     container_name: db-index
@@ -29,6 +35,9 @@ services:
     volumes:
       - ./databases/volumes/postgres:/var/lib/postgresql/data
       - ./secrets/postgres:/run/secrets
+    networks:
+      default_network:
+        ipv4_address: 172.18.0.4
 
   broker:
     container_name: broker
@@ -43,11 +52,15 @@ services:
       - db-metadata
       - db-content
       - db-index
+    networks:
+      default_network:
+        ipv4_address: 172.18.0.5
 
   crawler:
     container_name: crawler
     build:
       context: ./crawler
+    image: crawler:latest
     restart: unless-stopped
     volumes:
       - ./rabbitmq/crawler.ini:/usr/src/app/config/crawler.ini
@@ -56,11 +69,15 @@ services:
       - db-content
       - db-index
       - broker
+    networks:
+      default_network:
+        ipv4_address: 172.18.0.6
 
   # consumer:
   #   container_name: consumer
   #   build:
   #     context: ./consumer
+  #   image: consumer:latest
   #   restart: unless-stopped
   #   volumes:
   #     - ./rabbitmq/consumer.ini:/usr/src/app/config/consumer.ini
@@ -70,3 +87,10 @@ services:
   #     - db-index
   #     - broker
   #     - crawler
+
+networks:
+  default_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.18.0.0/16

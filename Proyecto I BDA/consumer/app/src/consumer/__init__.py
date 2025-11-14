@@ -1,0 +1,1 @@
+from consumer.core import Consumer

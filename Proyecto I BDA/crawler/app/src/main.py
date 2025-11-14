@@ -1,4 +1,3 @@
-from time import sleep
 from crawler import Crawler
 import sys
 

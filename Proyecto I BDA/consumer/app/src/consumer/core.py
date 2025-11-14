@@ -1,13 +1,12 @@
 from configparser import ConfigParser
 import pika
+from pika.adapters.blocking_connection import BlockingChannel
+from pika.spec import Basic, BasicProperties
 import json
 import os
 
-from crawler.webcrawler import WebCrawler
-from crawler.explorer import Explorer
-
-class Crawler:
-    def __init__(self, config_file: str = None):
+class Consumer:
+    def __init__(self, config_file: str):
         try:
             configparser = ConfigParser()
             configparser.read(config_file)
@@ -46,33 +45,37 @@ class Crawler:
         channel.queue_declare(queue='page-content')
         channel.queue_declare(queue='page-index')
 
-        self.connection.close()     
+        self.connection.close()   
 
-    def run(self):
-        explorer = Explorer()
-        urls = explorer.get_url_list()
-
-        crawler = WebCrawler()
-        for url in urls:
-            metadata, content = crawler.process_page(url)
-            if len(metadata) > 0 and len(content) > 0:
-                self._save_metadata_(metadata)
-                self._save_content_(content)
-
-    def _save_metadata_(self, metadata: dict):
+    def consume_indefinitely(self):
         self._open_connection_()
+
+        self._unified_consume_()
+        pass
+
+    def _unified_consume_(self):
         channel = self.connection.channel()
 
-        page_metadata = json.dumps(metadata)
-        channel.basic_publish(exchange='', routing_key='page-metadata', body=page_metadata)
+        self._receive_content_(channel)
+        self._receive_metadata_(channel)
+        
+        print(' [*] Waiting for messages. To exit press CTRL+C')
+        channel.start_consuming()
 
-        self.connection.close()
+    def _receive_metadata_(self, channel: BlockingChannel):
+        def callback(ch: BlockingChannel, method: Basic.Deliver
+                     , properties: BasicProperties, body: bytes):
+            print(f" [x] Received {body}")
 
-    def _save_content_(self, content: dict):
-        self._open_connection_()
-        channel = self.connection.channel()
+        channel.basic_consume(queue='page-metadata'
+                              , on_message_callback=callback
+                              , auto_ack=True)
 
-        page_content = json.dumps(content)
-        channel.basic_publish(exchange='', routing_key='page-content', body=page_content)
-
-        self.connection.close()
+    def _receive_content_(self, channel):
+        def callback(ch: BlockingChannel, method: Basic.Deliver
+                     , properties: BasicProperties, body: bytes):
+            print(f" [x] Received {body}")
+            
+        channel.basic_consume(queue='page-content'
+                              , on_message_callback=callback
+                              , auto_ack=True)
