@@ -86,12 +86,12 @@ const SearchBar = () => {
                 {searchResults.map((result) => (
                   <li key={result.id} className="mb-4 pb-4 border-b last:border-b-0">
                     <h1 className="font-bold text-lg">{result.title}</h1>
-                    
+                    <a
                       href={result.url}
                       className="text-blue-600 hover:underline text-sm"
                       target="_blank"
                       rel="noopener noreferrer"
-                    <a>
+                    >
                       {result.url}
                     </a>
                     {result.description && (
