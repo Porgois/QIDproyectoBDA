@@ -10,14 +10,13 @@ async function testConnections() {
     // Check health
     const health = await checkDatabaseHealth();
 
-    console.log('Database Health Status:');
-    console.log('━━━━━━━━━━━━━━━━━━━━━━');
-    console.log(`PostgreSQL: ${health.postgres ? '✅ Connected' : '❌ Failed'}`);
-    console.log(`MySQL:      ${health.mysql ? '✅ Connected' : '❌ Failed'}`);
-    console.log(`MongoDB:    ${health.mongodb ? '✅ Connected' : '❌ Failed'}`);
-    console.log('━━━━━━━━━━━━━━━━━━━━━━\n');
+    console.log('Database Status:');
+    console.log(`PostgreSQL: ${health.postgres ? 'Connected' : 'Failed'}`);
+    console.log(`MySQL:      ${health.mysql ? 'Connected' : 'Failed'}`);
+    console.log(`MongoDB:    ${health.mongodb ? 'Connected' : 'Failed'}`);
 
     // Test queries
+    /*
     if (health.postgres) {
       const pgResult = await pgPool.query('SELECT COUNT(*) as count FROM pages_metadata');
       console.log(`PostgreSQL: ${pgResult.rows[0].count} pages indexed`);
@@ -26,7 +25,7 @@ async function testConnections() {
     if (health.mysql) {
       const [mysqlResult] = await mysqlPool.query('SELECT COUNT(*) as count FROM pages_metadata_replica');
       console.log(`MySQL:      ${mysqlResult[0].count} pages replicated`);
-    }
+    } */
 
     process.exit(0);
   } catch (error) {
