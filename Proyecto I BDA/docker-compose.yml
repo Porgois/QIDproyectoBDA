@@ -8,6 +8,7 @@ services:
       - "3306:3306"
     volumes:
       - ./databases/volumes/mysql:/var/lib/mysql
+      - ./databases/init/mysql:/docker-entrypoint-initdb.d
       - ./secrets/mysql:/run/secrets
 
   db-content:
@@ -18,6 +19,7 @@ services:
       - "8081:8081"
     volumes:
       - ./databases/volumes/mongo:/data/db
+      - ./databases/init/mongo:/docker-entrypoint-initdb.d
       - ./secrets/mongo:/run/secrets
 
   db-index:
@@ -28,6 +30,7 @@ services:
       - "5432:5432"
     volumes:
       - ./databases/volumes/postgres:/var/lib/postgresql/data
+      - ./databases/init/postgres:/docker-entrypoint-initdb.d
       - ./secrets/postgres:/run/secrets
 
   broker:
@@ -67,26 +70,6 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
-    environment:
-      NODE_ENV: production
-      PORT: 3000
-      POSTGRES_HOST: db-index
-      POSTGRES_PORT: 5432
-      POSTGRES_DB: distributed_search
-      POSTGRES_USER: admin
-      POSTGRES_PASSWORD: admin123
-      MYSQL_HOST: db-metadata
-      MYSQL_PORT: 3306
-      MYSQL_DB: search_metadata
-      MYSQL_USER: root
-      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MONGO_URI: mongodb://db-content:27017
-      MONGO_DB: search_content
-      RABBITMQ_HOST: broker
-      RABBITMQ_PORT: 5672
-      RABBITMQ_USER: aDmIn-rabit_mq
-      RABBITMQ_PASS: 'hwr9W@658%%ExJw2ENmptt6sYj@1Ygh^m'
-      FRONTEND_URL: http://localhost:5173
     depends_on:
       - db-metadata
       - db-content
@@ -95,20 +78,20 @@ services:
     networks:
       - distributed_network
 
-  # consumer:
-  #   container_name: consumer
-  #   build:
-  #     context: ./consumer
-  #   image: consumer:latest
-  #   restart: unless-stopped
-  #   volumes:
-  #     - ./rabbitmq/consumer.ini:/usr/src/app/config/consumer.ini
-  #   depends_on:
-  #     - db-metadata
-  #     - db-content
-  #     - db-index
-  #     - broker
-  #     - crawler
+  consumer:
+    container_name: consumer
+    build:
+      context: ./consumer
+    image: consumer:latest
+    restart: unless-stopped
+    volumes:
+      - ./rabbitmq/consumer.ini:/usr/src/app/config/consumer.ini
+    depends_on:
+      - db-metadata
+      - db-content
+      - db-index
+      - broker
+      - crawler
 
 networks:
   distributed_network:
