@@ -5,7 +5,6 @@ const router = express.Router();
 const searchService = new SearchService();
 
 router.post('/search', async (req, res) => {
-  console.log("Search route hit.", req.body);
   try {
     const { query } = req.body;
 
@@ -30,8 +29,27 @@ router.post('/search', async (req, res) => {
   }
 });
 
+router.get('/stats', async (req, res) => {
+  try {
+    const stats = await searchService.getStats();
+    res.json({
+      success: true,
+      stats
+    });
+  } catch (error) {
+    console.error('Stats error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
+    });
+  }
+});
+
 router.get('/health', (req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({ 
+    status: 'ok', 
+    timestamp: new Date().toISOString() 
+  });
 });
 
 export default router;

@@ -1,5 +1,5 @@
 import amqp from 'amqplib';
-import { pgPool, mysqlPool, getMongoDb } from '../config/database.js';
+import { pgPool, getMongoDb } from '../config/database.js';
 
 export class RabbitMQConsumer {
   constructor() {
@@ -16,13 +16,11 @@ export class RabbitMQConsumer {
       
       console.log('RabbitMQ connected');
       
-      // Consumir ambas colas
       await this.consumeMetadata();
       await this.consumeContent();
       
     } catch (error) {
-      console.error('RabbitMQ connection error:', error);
-      // Reintentar en 5 segundos
+      console.error('❌ RabbitMQ connection error:', error.message);
       setTimeout(() => this.connect(), 5000);
     }
   }
@@ -34,16 +32,17 @@ export class RabbitMQConsumer {
       if (msg) {
         try {
           const data = JSON.parse(msg.content.toString());
+          console.log('Received metadata:', data.url);
           await this.saveMetadata(data);
           this.channel.ack(msg);
         } catch (error) {
-          console.error('Error processing metadata:', error);
-          this.channel.nack(msg, false, false); // No requeue
+          console.error('Error processing metadata:', error.message);
+          this.channel.nack(msg, false, false);
         }
       }
     });
     
-    console.log('Consuming page-metadata queue');
+    console.log('📥 Consuming page-metadata queue');
   }
 
   async consumeContent() {
@@ -53,10 +52,11 @@ export class RabbitMQConsumer {
       if (msg) {
         try {
           const data = JSON.parse(msg.content.toString());
+          console.log('Received content for:', data.url || 'unknown');
           await this.saveContent(data);
           this.channel.ack(msg);
         } catch (error) {
-          console.error('Error processing content:', error);
+          console.error('Error processing content:', error.message);
           this.channel.nack(msg, false, false);
         }
       }
@@ -66,77 +66,61 @@ export class RabbitMQConsumer {
   }
 
   async saveMetadata(data) {
-    const { url, title, 'first-headers': headers } = data;
-    
-    // Guardar en MySQL (metadatos)
     try {
-      await mysqlPool.query(
-        'INSERT INTO pages_metadata (url, title) VALUES (?, ?) ON DUPLICATE KEY UPDATE title = ?',
-        [url, title, title]
-      );
-      console.log(`Metadata saved: ${title}`);
-    } catch (error) {
-      console.error('Error saving to MySQL:', error);
-    }
+      const { url, title, 'first-headers': headers, datetimes } = data;
 
-    // Guardar keywords en PostgreSQL (índice)
-    try {
-      const keywords = this.extractKeywords(title, headers);
-      for (const keyword of keywords) {
-        await pgPool.query(
-          `INSERT INTO search_index (url, keyword, relevance) 
-           VALUES ($1, $2, $3) 
-           ON CONFLICT (url, keyword) DO UPDATE SET relevance = $3`,
-          [url, keyword.word, keyword.relevance]
-        );
-      }
-      console.log(`🔍 Keywords indexed: ${keywords.length}`);
+      await pgPool.query(`
+        INSERT INTO PageMetadata (url, title, first_headers, datetimes)
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (url) 
+        DO UPDATE SET 
+          title = EXCLUDED.title,
+          first_headers = EXCLUDED.first_headers,
+          datetimes = EXCLUDED.datetimes,
+          created_at = NOW()
+      `, [url, title, headers || [], datetimes || []]);
+
+      console.log('Metadata saved to PostgreSQL:', title);
     } catch (error) {
-      console.error('Error saving to PostgreSQL:', error);
+      console.error('Error saving metadata to PostgreSQL:', error.message);
+      throw error;
     }
   }
 
   async saveContent(data) {
     try {
       const db = getMongoDb();
-      await db.collection('pages_content').updateOne(
-        { url: data.url },
-        { $set: { ...data, updated_at: new Date() } },
+      
+      // Asegurarse de que tenga los campos requeridos
+      const contentData = {
+        url: data.url || `content_${Date.now()}`,
+        paragraphs: data.paragraphs || [],
+        'list-items': data['list-items'] || [],
+        image: data.image || [],
+        created_at: new Date(),
+        updated_at: new Date()
+      };
+
+      await db.collection('page_content').updateOne(
+        { url: contentData.url },
+        { $set: contentData },
         { upsert: true }
       );
-      console.log(`Content saved: ${data.url}`);
+
+      console.log('Content saved to MongoDB:', contentData.url);
     } catch (error) {
-      console.error('Error saving to MongoDB:', error);
+      console.error('Error saving content to MongoDB:', error.message);
+      throw error;
     }
-  }
-
-  extractKeywords(title, headers = []) {
-    const keywords = new Set();
-    
-    // Extraer del título
-    if (title) {
-      title.split(/\s+/).forEach(word => {
-        const clean = word.toLowerCase().replace(/[^\w]/g, '');
-        if (clean.length > 3) keywords.add({ word: clean, relevance: 1.0 });
-      });
-    }
-
-    // Extraer de headers
-    headers.forEach((header, index) => {
-      header.split(/\s+/).forEach(word => {
-        const clean = word.toLowerCase().replace(/[^\w]/g, '');
-        if (clean.length > 3) {
-          keywords.add({ word: clean, relevance: 0.8 - (index * 0.1) });
-        }
-      });
-    });
-
-    return Array.from(keywords).slice(0, 20);
   }
 
   async close() {
-    if (this.channel) await this.channel.close();
-    if (this.connection) await this.connection.close();
-    console.log('RabbitMQ connection closed');
+    try {
+      if (this.channel) await this.channel.close();
+      if (this.connection) await this.connection.close();
+      console.log('RabbitMQ connection closed');
+    } catch (error) {
+      console.error('Error closing RabbitMQ:', error);
+    }
   }
 }

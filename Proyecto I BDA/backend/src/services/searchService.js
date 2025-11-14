@@ -9,15 +9,14 @@ export class SearchService {
     }
 
     try {
-      // Búsqueda paralela en las 3 bases de datos
-      const [pgResults, mysqlResults, mongoResults] = await Promise.all([
+      // Búsqueda paralela
+      const [pgResults, mongoResults] = await Promise.all([
         this.searchPostgres(keywords),
-        this.searchMySQL(keywords),
         this.searchMongo(keywords)
       ]);
 
-      // Combinar y rankear resultados
-      const combined = this.mergeResults(pgResults, mysqlResults, mongoResults);
+      // Combinar resultados
+      const combined = this.mergeResults(pgResults, mongoResults);
 
       return {
         success: true,
@@ -25,7 +24,6 @@ export class SearchService {
         total: combined.length,
         sources: {
           postgres: pgResults.length,
-          mysql: mysqlResults.length,
           mongodb: mongoResults.length
         }
       };
@@ -37,14 +35,29 @@ export class SearchService {
 
   async searchPostgres(keywords) {
     try {
+      // Buscar en título y headers
+      const conditions = keywords.map(() => `
+        (LOWER(title) LIKE $1 OR 
+         EXISTS (SELECT 1 FROM unnest(first_headers) AS header WHERE LOWER(header) LIKE $1))
+      `).join(' OR ');
+      
+      const params = keywords.map(k => `%${k}%`);
+      
       const query = `
-        SELECT url, keyword, relevance
-        FROM search_index
-        WHERE keyword = ANY($1)
-        ORDER BY relevance DESC
+        SELECT 
+          page_id,
+          url,
+          title,
+          first_headers,
+          datetimes,
+          created_at
+        FROM PageMetadata
+        WHERE ${conditions.replace(/\$1/g, (_, i) => `$${i + 1}`)}
+        ORDER BY created_at DESC
         LIMIT 50
       `;
-      const result = await pgPool.query(query, [keywords]);
+
+      const result = await pgPool.query(query, params);
       return result.rows;
     } catch (error) {
       console.error('Postgres search error:', error);
@@ -52,28 +65,13 @@ export class SearchService {
     }
   }
 
-  async searchMySQL(keywords) {
-    try {
-      const likeConditions = keywords.map(() => 'title LIKE ?').join(' OR ');
-      const params = keywords.map(k => `%${k}%`);
-      
-      const [rows] = await mysqlPool.query(
-        `SELECT url, title FROM pages_metadata WHERE ${likeConditions} LIMIT 50`,
-        params
-      );
-      return rows;
-    } catch (error) {
-      console.error('MySQL search error:', error);
-      return [];
-    }
-  }
-
   async searchMongo(keywords) {
     try {
       const db = getMongoDb();
-      const collection = db.collection('pages_content');
+      const collection = db.collection('page_content');
       
       const searchRegex = keywords.join('|');
+      
       const results = await collection.find({
         $or: [
           { paragraphs: { $regex: searchRegex, $options: 'i' } },
@@ -88,57 +86,60 @@ export class SearchService {
     }
   }
 
-  mergeResults(pgResults, mysqlResults, mongoResults) {
+  mergeResults(pgResults, mongoResults) {
     const resultsMap = new Map();
 
-    // Agregar resultados de PostgreSQL (keywords con relevancia)
+    // Agregar resultados de PostgreSQL
     pgResults.forEach(pg => {
-      if (!resultsMap.has(pg.url)) {
-        resultsMap.set(pg.url, {
-          url: pg.url,
-          title: '',
-          description: '',
-          score: parseFloat(pg.relevance) || 0,
-          sources: ['postgres']
-        });
-      } else {
-        const existing = resultsMap.get(pg.url);
-        existing.score += parseFloat(pg.relevance) || 0;
-      }
-    });
-
-    // Agregar títulos de MySQL
-    mysqlResults.forEach(mysql => {
-      if (resultsMap.has(mysql.url)) {
-        resultsMap.get(mysql.url).title = mysql.title;
-        resultsMap.get(mysql.url).sources.push('mysql');
-      } else {
-        resultsMap.set(mysql.url, {
-          url: mysql.url,
-          title: mysql.title,
-          description: '',
-          score: 0.5,
-          sources: ['mysql']
-        });
-      }
+      resultsMap.set(pg.url, {
+        url: pg.url,
+        title: pg.title || 'Sin título',
+        description: pg.first_headers?.join(' • ') || '',
+        score: 1.0,
+        sources: ['postgres'],
+        metadata: {
+          page_id: pg.page_id,
+          created_at: pg.created_at,
+          datetimes: pg.datetimes
+        }
+      });
     });
 
     // Agregar contenido de MongoDB
     mongoResults.forEach(mongo => {
-      const description = (mongo.paragraphs || []).slice(0, 2).join(' ').substring(0, 200);
-      
-      if (resultsMap.has(mongo.url)) {
-        const existing = resultsMap.get(mongo.url);
-        existing.description = description;
+      // Crear descripción del contenido
+      const paragraphs = mongo.paragraphs || [];
+      const listItems = mongo['list-items'] || [];
+      const description = [...paragraphs.slice(0, 2), ...listItems.slice(0, 1)]
+        .join(' ')
+        .substring(0, 200);
+
+      const url = mongo.url || `content_${mongo._id}`;
+
+      if (resultsMap.has(url)) {
+        // Si ya existe, actualizar
+        const existing = resultsMap.get(url);
+        existing.description = description || existing.description;
         existing.sources.push('mongodb');
-        existing.score += 1; // Bonus por tener contenido
+        existing.score += 1.5; // Bonus por tener contenido
+        existing.content = {
+          paragraphs: paragraphs.length,
+          listItems: listItems.length,
+          images: mongo.image?.length || 0
+        };
       } else {
-        resultsMap.set(mongo.url, {
-          url: mongo.url,
-          title: mongo.url.split('/').pop() || 'Sin título',
-          description,
-          score: 0.3,
-          sources: ['mongodb']
+        // Crear nuevo resultado
+        resultsMap.set(url, {
+          url: url,
+          title: paragraphs[0]?.substring(0, 100) || 'Sin título',
+          description: description,
+          score: 0.5,
+          sources: ['mongodb'],
+          content: {
+            paragraphs: paragraphs.length,
+            listItems: listItems.length,
+            images: mongo.image?.length || 0
+          }
         });
       }
     });
@@ -150,5 +151,26 @@ export class SearchService {
         id: index + 1,
         ...item
       }));
+  }
+
+  // Método para obtener estadísticas
+  async getStats() {
+    try {
+      const [pgCount] = await Promise.all([
+        pgPool.query('SELECT COUNT(*) as count FROM PageMetadata')
+      ]);
+
+      const db = getMongoDb();
+      const mongoCount = await db.collection('page_content').countDocuments();
+
+      return {
+        postgres: parseInt(pgCount.rows[0].count),
+        mongodb: mongoCount,
+        total: parseInt(pgCount.rows[0].count) + mongoCount
+      };
+    } catch (error) {
+      console.error('Stats error:', error);
+      return { postgres: 0, mongodb: 0, total: 0 };
+    }
   }
 }
