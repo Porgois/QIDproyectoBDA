@@ -1,7 +1,5 @@
 FROM python:3.14-slim
 
-ENV CONSUMER_CONFIG_FILE="consumer.ini"
-
 WORKDIR /usr/src/app
 
 COPY ./app/requirements.txt .
@@ -13,4 +11,4 @@ RUN useradd -m -u 1000 appuser
 RUN chown -R appuser:appuser /usr/src/app
 USER appuser
 
-CMD ["python3", "src/main.py", ${CONSUMER_CONFIG_FILE}]
+CMD ["python", "./src/main.py", "./config/consumer.ini"]

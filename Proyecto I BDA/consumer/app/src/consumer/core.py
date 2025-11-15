@@ -1,9 +1,9 @@
-from configparser import ConfigParser
-import pika
+import pika, json, os
 from pika.adapters.blocking_connection import BlockingChannel
 from pika.spec import Basic, BasicProperties
-import json
-import os
+from configparser import ConfigParser
+
+from consumer.metadata_handler import MetadataHandler
 
 class Consumer:
     def __init__(self, config_file: str):
@@ -11,17 +11,15 @@ class Consumer:
             configparser = ConfigParser()
             configparser.read(config_file)
 
-            if not os.path.exists(config_file):
-                raise Exception("Config File not found")
+            self.mh = MetadataHandler(configparser)
 
-            username = configparser.get('rabbitmq', 'username', fallback='guest')
-            password = configparser.get('rabbitmq', 'password', fallback='guest')
+            self.credentials = pika.PlainCredentials(
+                username=configparser.get('rabbitmq', 'username', fallback='guest'),
+                password=configparser.get('rabbitmq', 'password', fallback='guest')
+            )
             self.host = configparser.get('rabbitmq', 'host', fallback='localhost')
             self.port = configparser.getint('rabbitmq', 'port', fallback=5672)
 
-            self.credentials = pika.PlainCredentials(username=username
-                                                    , password=password)
-            
             self._create_queues_()
         except Exception as e:
             print(f"Error reading configuration: {e}")
@@ -65,7 +63,7 @@ class Consumer:
     def _receive_metadata_(self, channel: BlockingChannel):
         def callback(ch: BlockingChannel, method: Basic.Deliver
                      , properties: BasicProperties, body: bytes):
-            print(f" [x] Received {body}")
+            self.mh.handle(ch, method, properties, body)
 
         channel.basic_consume(queue='page-metadata'
                               , on_message_callback=callback
