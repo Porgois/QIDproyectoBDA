@@ -6,5 +6,3 @@ if __name__ == "__main__":
         config_file = sys.argv[1]
         consumer = Consumer(config_file=config_file)
         consumer.consume_indefinitely()
-    else:
-        print("Nope")

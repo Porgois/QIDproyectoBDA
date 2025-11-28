@@ -4,17 +4,42 @@ services:
       MYSQL_USER_FILE: "/run/secrets/MYSQL_USER"
       MYSQL_PASSWORD_FILE: "/run/secrets/MYSQL_PASSWORD"
       MYSQL_ROOT_PASSWORD_FILE: "/run/secrets/MYSQL_ROOT_PASSWORD"
+      MYSQL_DATABASE: search_metadata
 
   db-content:
     environment:
       MONGO_INITDB_ROOT_USERNAME_FILE: /run/secrets/MONGO_USER
       MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/MONGO_PASSWORD
+      MONGO_INITDB_DATABASE: search_content
 
   db-index:
     environment:
       POSTGRES_USER_FILE: /run/secrets/POSTGRES_USER
       POSTGRES_PASSWORD_FILE: /run/secrets/POSTGRES_PASSWORD
+      POSTGRES_DB: distributed_search
 
   broker:
     environment:
       RABBITMQ_CONFIG_FILES: /etc/rabbitmq/conf.d/rabbitmq.conf
+
+  backend:
+    environment:
+        NODE_ENV: production
+        PORT: 3000
+        POSTGRES_HOST: db-index
+        POSTGRES_PORT: 5432
+        POSTGRES_DB: distributed_search
+        POSTGRES_USER: post-admingres
+        POSTGRES_PASSWORD: 2!4ktc92!WrHGkYCS9uutawQ&e&7Kq!j
+        MYSQL_HOST: db-metadata
+        MYSQL_PORT: 3306
+        MYSQL_DB: search_metadata
+        MYSQL_USER: myadmin-sql
+        MYSQL_PASSWORD: bLjnd1pf*MWnBR99E$ZKFXV6jq$33CXQ
+        MONGO_URI: mongodb://db-content:27017
+        MONGO_DB: search_content
+        RABBITMQ_HOST: broker
+        RABBITMQ_PORT: 5672
+        RABBITMQ_USER: aDmIn-rabit_mq
+        RABBITMQ_PASS: 'hwr9W@658%%ExJw2ENmptt6sYj@1Ygh^m'
+        FRONTEND_URL: http://localhost:5173
